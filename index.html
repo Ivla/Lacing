@@ -2,17 +2,18 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>脈絡戰 - WebRTC 穩定加固版</title>
+    <title>Lacing War - Online Multiplayer</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; margin: 0; min-height: 100vh; }
-        #lobby { background: #333; padding: 25px; border-radius: 12px; margin-top: 30px; width: 450px; text-align: center; border: 1px solid #555; }
+        /* 繼承之前的優質 UI ... */
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; margin: 0; min-height: 100vh; overflow-x: hidden; }
+        #lobby { background: #333; padding: 25px; border-radius: 12px; margin-top: 30px; width: 450px; text-align: center; border: 1px solid #555; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .connection-step { margin: 15px 0; padding: 15px; background: #222; border-radius: 8px; }
-        input { padding: 10px; border-radius: 5px; border: 1px solid #555; width: 220px; background: #000; color: #00ff00; font-family: monospace; }
-        button { padding: 10px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        input { padding: 10px; border-radius: 5px; border: 1px solid #555; width: 220px; background: #000; color: #00ff00; font-family: monospace; font-size: 1.1em; }
+        button { padding: 10px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold; transition: 0.2s; }
         button:hover { background: #2ecc71; }
         #game-container { display: none; flex-direction: column; align-items: center; padding-bottom: 50px; }
-        #game-info { margin: 20px; text-align: center; background: #333; padding: 20px; border-radius: 15px; width: 460px; border: 1px solid #555; }
+        #game-info { margin: 20px; text-align: center; background: #333; padding: 20px; border-radius: 15px; border: 1px solid #555; width: 460px; }
         .score-board { display: flex; gap: 60px; font-size: 1.6em; margin-top: 15px; justify-content: center; }
         .score-box { position: relative; display: flex; flex-direction: column; align-items: center; width: 130px; }
         .crown { font-size: 30px; position: absolute; top: -38px; display: none; animation: bounce 1s infinite alternate; }
@@ -29,25 +30,27 @@
         .line.p1 { background: #ff4757; }
         .line.p2 { background: #2e86de; }
         #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(8px); }
-        #result-card { background: #222; padding: 40px; border-radius: 20px; border: 2px solid #f1c40f; text-align: center; }
+        #result-card { background: #222; padding: 40px; border-radius: 20px; border: 3px solid #f1c40f; text-align: center; }
         #turn-display { font-size: 1.2em; color: #f1c40f; font-weight: bold; }
         #status-msg { font-size: 0.9em; color: #00ff00; margin-top: 10px; font-family: monospace; }
+        #error-log { font-size: 0.8em; color: #ff4757; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
 <div id="lobby">
-    <h2 style="color: #f1c40f;">脈絡戰 - P2P 連線</h2>
+    <h2 style="color: #f1c40f;">Lacing War</h2>
     <div class="connection-step">
-        <div>您的 ID: <b id="my-id">等待伺服器...</b></div>
-        <button onclick="copyMyID()" style="margin-top: 10px; background: #444;">複製 ID</button>
+        <div style="margin-bottom: 5px;">您的連線 ID</div>
+        <b id="my-id" style="font-size: 1.2em; color: #fff;">初始化中...</b><br>
+        <button onclick="copyMyID()" style="margin-top: 10px; background: #444;">複製 ID 給對手</button>
     </div>
     <div class="connection-step">
         <input type="text" id="peer-id-input" placeholder="貼上對手的 ID">
-        <button id="connect-btn" onclick="connectToPeer()">連線對戰</button>
+        <button id="connect-btn" onclick="connectToPeer()">進入房間</button>
     </div>
-    <div id="status-msg">正在準備通訊組件...</div>
-    <div style="font-size: 0.8em; color: #888; margin-top: 10px;">提示：一人複製，另一人貼上並連線即可。</div>
+    <div id="status-msg">正在尋找 PeerJS 節點...</div>
+    <div id="error-log"></div>
 </div>
 
 <div id="game-container">
@@ -56,12 +59,12 @@
         <div class="score-board">
             <div class="score-box">
                 <div id="crown-p1" class="crown">👑</div>
-                <div class="player-label" style="color: #ff4757;">紅方</div>
+                <div class="player-label" style="color: #ff4757;">紅方 (P1)</div>
                 <div id="p1-score">0</div>
             </div>
             <div class="score-box">
                 <div id="crown-p2" class="crown">👑</div>
-                <div class="player-label" style="color: #2e86de;">藍方</div>
+                <div class="player-label" style="color: #2e86de;">藍方 (P2)</div>
                 <div id="p2-score">0</div>
             </div>
         </div>
@@ -76,7 +79,7 @@
             <div style="color: #ff4757;">紅: <span id="final-p1">0</span></div>
             <div style="color: #2e86de;">藍: <span id="final-p2">0</span></div>
         </div>
-        <button onclick="location.reload()">返回大廳</button>
+        <button onclick="location.reload()" style="padding: 10px 20px;">回大廳</button>
     </div>
 </div>
 
@@ -89,27 +92,32 @@
     let myPlayerNum = 0; 
     let currentTurnPlayer = 1;
 
-    // 初始化 Peer
+    // --- GitHub Pages 優化配置 ---
     function initPeer() {
-        peer = new Peer({
+        peer = new Peer(null, {
+            host: '0.peerjs.com',
+            port: 443,
+            secure: true, // 強制 HTTPS
+            path: '/',
             config: {
                 'iceServers': [
                     { 'urls': 'stun:stun.l.google.com:19302' },
-                    { 'urls': 'stun:stun1.l.google.com:19302' }
+                    { 'urls': 'stun:stun1.l.google.com:19302' },
+                    { 'urls': 'stun:stun2.l.google.com:19302' },
+                    { 'urls': 'stun:stun3.l.google.com:19302' }
                 ]
             },
-            debug: 2
+            debug: 3
         });
 
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
-            document.getElementById('status-msg').innerText = "伺服器就緒，請等待連線或發起連線";
+            document.getElementById('status-msg').innerText = "● 伺服器已就緒";
         });
 
-        // 接收方 (Host - 紅)
         peer.on('connection', (c) => {
             if (conn) {
-                c.on('open', () => c.send({type: 'error', msg: '已有連線'}));
+                c.on('open', () => c.send({type: 'error', msg: '房間已滿'}));
                 setTimeout(() => c.close(), 500);
                 return;
             }
@@ -119,18 +127,24 @@
         });
 
         peer.on('error', (err) => {
-            console.error("Peer Error:", err);
-            document.getElementById('status-msg').innerText = "發生錯誤: " + err.type;
+            console.error("Peer Error:", err.type);
+            const errorLog = document.getElementById('error-log');
+            errorLog.style.display = 'block';
+            errorLog.innerText = "連線錯誤: " + err.type;
+            
+            if (err.type === 'peer-unavailable') {
+                errorLog.innerText += " (找不到對方，請確認 ID 是否正確)";
+            }
         });
     }
 
-    // 發起方 (Guest - 藍)
     function connectToPeer() {
         const targetId = document.getElementById('peer-id-input').value.trim();
-        if (!targetId) return alert("請輸入 ID");
-        if (targetId === peer.id) return alert("不能連給自己");
+        if (!targetId) return;
+        if (targetId === peer.id) return alert("無法連線至自身 ID");
 
-        document.getElementById('status-msg').innerText = "正在打洞連線中...";
+        document.getElementById('status-msg').innerText = "● 正在打洞連線中...";
+        // 使用 reliable: true 在 GitHub 安全環境下較穩定
         conn = peer.connect(targetId, { reliable: true });
         myPlayerNum = 2;
         setupListeners();
@@ -138,59 +152,46 @@
 
     function setupListeners() {
         conn.on('open', () => {
-            document.getElementById('status-msg').innerText = "連線成功！正在建立數據同步...";
-            // 發送一個測試包確保兩邊數據通道真正通了
-            conn.send({ type: 'handshake', from: myPlayerNum });
+            document.getElementById('status-msg').innerText = "● 連線成功，同步數據中...";
+            // 延遲發送 Handshake，確保通道穩定
+            setTimeout(() => {
+                conn.send({ type: 'handshake', from: myPlayerNum });
+            }, 300);
         });
 
         conn.on('data', (data) => {
-            console.log("收到數據:", data);
             if (data.type === 'handshake') {
-                // 收到握手，進入遊戲 UI
                 startGameUI();
-                // 如果我是紅方，回覆一個握手讓藍方也進去
                 if (myPlayerNum === 1) conn.send({ type: 'handshake', from: 1 });
             } else if (data.type === 'move') {
                 executeTurn(data.r, data.c, data.player);
-            } else if (data.type === 'error') {
-                alert(data.msg);
-                location.reload();
             }
         });
 
         conn.on('close', () => {
-            alert("連線中斷");
+            alert("對手斷開連線");
             location.reload();
         });
-        
-        // 5秒沒開 open 就視為失敗
-        setTimeout(() => {
-            if (!conn.open && myPlayerNum === 2) {
-                alert("連線逾時，請確認對方 ID 是否正確或網路環境是否支援。");
-                location.reload();
-            }
-        }, 10000);
     }
 
+    // --- 核心 UI 與 渲染邏輯 (與穩定版一致) ---
     function startGameUI() {
         document.getElementById('lobby').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
         updateTurnDisplay();
-        
         const labels = document.querySelectorAll('.player-label');
         if (myPlayerNum === 1) {
-            labels[0].innerText = "您 (紅)";
-            labels[1].innerText = "對手 (藍)";
+            labels[0].innerText = "您 (紅方)";
+            labels[1].innerText = "對手 (藍方)";
         } else {
-            labels[0].innerText = "對手 (紅)";
-            labels[1].innerText = "您 (藍)";
+            labels[0].innerText = "對手 (紅方)";
+            labels[1].innerText = "您 (藍方)";
         }
         createBoard();
     }
 
     function handleMove(r, c) {
         if (gameOver || currentTurnPlayer !== myPlayerNum || !conn || !conn.open) return;
-        
         if (isValidMove(r, c, myPlayerNum)) {
             conn.send({ type: 'move', r, c, player: myPlayerNum });
             executeTurn(r, c, myPlayerNum);
@@ -203,7 +204,6 @@
         findNewConnections(r, c, player);
         render();
         updateScore();
-
         if (!checkGameOver()) {
             currentTurnPlayer = (player === 1) ? 2 : 1;
             updateTurnDisplay();
@@ -213,7 +213,7 @@
     function updateTurnDisplay() {
         const display = document.getElementById('turn-display');
         if (currentTurnPlayer === myPlayerNum) {
-            display.innerText = "輪到您落子";
+            display.innerText = "★ 您的回合 ★";
             display.style.color = "#f1c40f";
         } else {
             display.innerText = "等待對手落子...";
@@ -221,7 +221,6 @@
         }
     }
 
-    // --- 核心運算 ---
     function createBoard() {
         const boardEl = document.getElementById('board');
         boardEl.innerHTML = '';
@@ -345,9 +344,9 @@
     }
 
     function copyMyID() {
-        const text = document.getElementById('my-id').innerText;
-        if (text.includes("等待")) return;
-        navigator.clipboard.writeText(text).then(() => alert("ID 已複製！"));
+        const idText = document.getElementById('my-id').innerText;
+        if (idText === "初始化中...") return;
+        navigator.clipboard.writeText(idText).then(() => alert("ID 已複製到剪貼簿！"));
     }
 
     initPeer();
