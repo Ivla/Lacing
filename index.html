@@ -2,16 +2,14 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Lacing War - Online Multiplayer</title>
+    <title>Lacing War - Short ID Version</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        /* 繼承之前的優質 UI ... */
-        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; margin: 0; min-height: 100vh; overflow-x: hidden; }
-        #lobby { background: #333; padding: 25px; border-radius: 12px; margin-top: 30px; width: 450px; text-align: center; border: 1px solid #555; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; margin: 0; min-height: 100vh; }
+        #lobby { background: #333; padding: 25px; border-radius: 12px; margin-top: 30px; width: 450px; text-align: center; border: 1px solid #555; }
         .connection-step { margin: 15px 0; padding: 15px; background: #222; border-radius: 8px; }
-        input { padding: 10px; border-radius: 5px; border: 1px solid #555; width: 220px; background: #000; color: #00ff00; font-family: monospace; font-size: 1.1em; }
-        button { padding: 10px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #2ecc71; }
+        input { padding: 10px; border-radius: 5px; border: 1px solid #555; width: 180px; background: #000; color: #f1c40f; font-family: monospace; font-size: 1.2em; text-align: center; }
+        button { padding: 10px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold; }
         #game-container { display: none; flex-direction: column; align-items: center; padding-bottom: 50px; }
         #game-info { margin: 20px; text-align: center; background: #333; padding: 20px; border-radius: 15px; border: 1px solid #555; width: 460px; }
         .score-board { display: flex; gap: 60px; font-size: 1.6em; margin-top: 15px; justify-content: center; }
@@ -20,7 +18,7 @@
         @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-5px); } }
         #board { display: grid; grid-template-columns: repeat(15, 30px); gap: 1px; background: #444; border: 5px solid #000; }
         .cell { width: 30px; height: 30px; background: #2c2c2c; display: flex; justify-content: center; align-items: center; cursor: pointer; position: relative; }
-        .cell.disputed { background: #444; box-shadow: inset 0 0 8px #000; }
+        .cell.disputed { background: #444; }
         .piece { width: 22px; height: 22px; border-radius: 50%; z-index: 10; border: 2px solid rgba(255,255,255,0.3); }
         .piece.p1 { background: #ff4757; box-shadow: 0 0 15px #ff4757; }
         .piece.p2 { background: #2e86de; box-shadow: 0 0 15px #2e86de; }
@@ -33,7 +31,6 @@
         #result-card { background: #222; padding: 40px; border-radius: 20px; border: 3px solid #f1c40f; text-align: center; }
         #turn-display { font-size: 1.2em; color: #f1c40f; font-weight: bold; }
         #status-msg { font-size: 0.9em; color: #00ff00; margin-top: 10px; font-family: monospace; }
-        #error-log { font-size: 0.8em; color: #ff4757; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
@@ -41,16 +38,15 @@
 <div id="lobby">
     <h2 style="color: #f1c40f;">Lacing War</h2>
     <div class="connection-step">
-        <div style="margin-bottom: 5px;">您的連線 ID</div>
-        <b id="my-id" style="font-size: 1.2em; color: #fff;">初始化中...</b><br>
-        <button onclick="copyMyID()" style="margin-top: 10px; background: #444;">複製 ID 給對手</button>
+        <div style="margin-bottom: 5px;">您的房號 (ID)</div>
+        <b id="my-id" style="font-size: 1.5em; color: #fff; letter-spacing: 2px;">生成中...</b><br>
+        <button onclick="copyMyID()" style="margin-top: 10px; background: #444;">複製房號</button>
     </div>
     <div class="connection-step">
-        <input type="text" id="peer-id-input" placeholder="貼上對手的 ID">
-        <button id="connect-btn" onclick="connectToPeer()">進入房間</button>
+        <input type="text" id="peer-id-input" placeholder="對手的房號" maxlength="5">
+        <button onclick="connectToPeer()">加入房間</button>
     </div>
-    <div id="status-msg">正在尋找 PeerJS 節點...</div>
-    <div id="error-log"></div>
+    <div id="status-msg">正在尋找 PeerJS 伺服器...</div>
 </div>
 
 <div id="game-container">
@@ -79,11 +75,21 @@
             <div style="color: #ff4757;">紅: <span id="final-p1">0</span></div>
             <div style="color: #2e86de;">藍: <span id="final-p2">0</span></div>
         </div>
-        <button onclick="location.reload()" style="padding: 10px 20px;">回大廳</button>
+        <button onclick="location.reload()">回大廳</button>
     </div>
 </div>
 
 <script>
+    // 生成 5 位隨機英數字
+    function generateShortId() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        let result = '';
+        for (let i = 0; i < 5; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
+
     const SIZE = 15;
     let board = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
     let connectionsData = [];
@@ -92,48 +98,32 @@
     let myPlayerNum = 0; 
     let currentTurnPlayer = 1;
 
-    // --- GitHub Pages 優化配置 ---
     function initPeer() {
-        peer = new Peer(null, {
-            host: '0.peerjs.com',
-            port: 443,
-            secure: true, // 強制 HTTPS
-            path: '/',
-            config: {
-                'iceServers': [
-                    { 'urls': 'stun:stun.l.google.com:19302' },
-                    { 'urls': 'stun:stun1.l.google.com:19302' },
-                    { 'urls': 'stun:stun2.l.google.com:19302' },
-                    { 'urls': 'stun:stun3.l.google.com:19302' }
-                ]
-            },
-            debug: 3
+        const shortId = generateShortId();
+        // 指定 ID 初始化
+        peer = new Peer(shortId, {
+            config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] },
+            debug: 2
         });
 
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
-            document.getElementById('status-msg').innerText = "● 伺服器已就緒";
+            document.getElementById('status-msg').innerText = "● 伺服器就緒，請告知對手房號";
         });
 
         peer.on('connection', (c) => {
-            if (conn) {
-                c.on('open', () => c.send({type: 'error', msg: '房間已滿'}));
-                setTimeout(() => c.close(), 500);
-                return;
-            }
+            if (conn) { c.close(); return; }
             conn = c;
             myPlayerNum = 1;
             setupListeners();
         });
 
         peer.on('error', (err) => {
-            console.error("Peer Error:", err.type);
-            const errorLog = document.getElementById('error-log');
-            errorLog.style.display = 'block';
-            errorLog.innerText = "連線錯誤: " + err.type;
-            
-            if (err.type === 'peer-unavailable') {
-                errorLog.innerText += " (找不到對方，請確認 ID 是否正確)";
+            if (err.type === 'unavailable-id') {
+                // 如果 ID 重複，自動刷新頁面重試
+                location.reload();
+            } else {
+                document.getElementById('status-msg').innerText = "連線錯誤: " + err.type;
             }
         });
     }
@@ -141,40 +131,34 @@
     function connectToPeer() {
         const targetId = document.getElementById('peer-id-input').value.trim();
         if (!targetId) return;
-        if (targetId === peer.id) return alert("無法連線至自身 ID");
-
-        document.getElementById('status-msg').innerText = "● 正在打洞連線中...";
-        // 使用 reliable: true 在 GitHub 安全環境下較穩定
-        conn = peer.connect(targetId, { reliable: true });
+        
+        document.getElementById('status-msg').innerText = "● 正在加入房間 " + targetId + "...";
+        conn = peer.connect(targetId);
         myPlayerNum = 2;
         setupListeners();
     }
 
     function setupListeners() {
         conn.on('open', () => {
-            document.getElementById('status-msg').innerText = "● 連線成功，同步數據中...";
-            // 延遲發送 Handshake，確保通道穩定
-            setTimeout(() => {
-                conn.send({ type: 'handshake', from: myPlayerNum });
-            }, 300);
+            document.getElementById('status-msg').innerText = "● 連線成功";
+            conn.send({ type: 'handshake' });
         });
 
         conn.on('data', (data) => {
             if (data.type === 'handshake') {
                 startGameUI();
-                if (myPlayerNum === 1) conn.send({ type: 'handshake', from: 1 });
+                if (myPlayerNum === 1) conn.send({ type: 'handshake' });
             } else if (data.type === 'move') {
                 executeTurn(data.r, data.c, data.player);
             }
         });
 
         conn.on('close', () => {
-            alert("對手斷開連線");
+            alert("對手斷線");
             location.reload();
         });
     }
 
-    // --- 核心 UI 與 渲染邏輯 (與穩定版一致) ---
     function startGameUI() {
         document.getElementById('lobby').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
@@ -190,6 +174,7 @@
         createBoard();
     }
 
+    // --- 核心邏輯補完 ---
     function handleMove(r, c) {
         if (gameOver || currentTurnPlayer !== myPlayerNum || !conn || !conn.open) return;
         if (isValidMove(r, c, myPlayerNum)) {
@@ -211,26 +196,21 @@
     }
 
     function updateTurnDisplay() {
-        const display = document.getElementById('turn-display');
-        if (currentTurnPlayer === myPlayerNum) {
-            display.innerText = "★ 您的回合 ★";
-            display.style.color = "#f1c40f";
-        } else {
-            display.innerText = "等待對手落子...";
-            display.style.color = "#aaa";
-        }
+        const d = document.getElementById('turn-display');
+        d.innerText = currentTurnPlayer === myPlayerNum ? "★ 您的回合 ★" : "等待對手落子...";
+        d.style.color = currentTurnPlayer === myPlayerNum ? "#f1c40f" : "#aaa";
     }
 
     function createBoard() {
-        const boardEl = document.getElementById('board');
-        boardEl.innerHTML = '';
+        const b = document.getElementById('board');
+        b.innerHTML = '';
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 const cell = document.createElement('div');
                 cell.className = 'cell';
                 cell.id = `cell-${r}-${c}`;
                 cell.onclick = () => handleMove(r, c);
-                boardEl.appendChild(cell);
+                b.appendChild(cell);
             }
         }
         render();
@@ -242,26 +222,21 @@
 
     function isValidMove(r, c, player) {
         if (board[r][c] !== 0) return false;
-        const lines = getLinesAt(r, c);
-        if (lines.some(l => l.player === (player === 1 ? 2 : 1))) return false;
-        return true;
+        return !getLinesAt(r, c).some(l => l.player === (player === 1 ? 2 : 1));
     }
 
     function findNewConnections(r, c, player) {
         const dirs = [[1,0], [-1,0], [0,1], [0,-1]];
         dirs.forEach(([dr, dc]) => {
-            let currR = r + dr, currC = c + dc;
-            let found = false;
-            while(currR >= 0 && currR < SIZE && currC >= 0 && currC < SIZE) {
-                if (board[currR][currC] !== 0) {
-                    if (board[currR][currC] === player) found = true;
+            let cr = r + dr, cc = c + dc, found = false;
+            while(cr >= 0 && cr < SIZE && cc >= 0 && cc < SIZE) {
+                if (board[cr][cc] !== 0) {
+                    if (board[cr][cc] === player) found = true;
                     break;
                 }
-                currR += dr; currC += dc;
+                cr += dr; cc += dc;
             }
-            if (found) {
-                connectionsData.push({ origin: {r, c}, target: {r: currR, c: currC}, dr, dc, player, path: [], active: true });
-            }
+            if (found) connectionsData.push({ origin: {r, c}, target: {r: cr, c: cc}, dr, dc, player, path: [], active: true });
         });
     }
 
@@ -272,10 +247,7 @@
             const nr = last.r + task.dr, nc = last.c + task.dc;
             if (nr === task.target.r && nc === task.target.c) { task.active = false; return; }
             if (board[nr][nc] !== 0 && board[nr][nc] !== task.player) { task.active = false; return; }
-            const currentDir = task.dr !== 0 ? 'v' : 'h';
-            if (getLinesAt(nr, nc).some(l => (l.dr !== 0 ? 'v' : 'h') === currentDir)) {
-                task.active = false; return;
-            }
+            if (getLinesAt(nr, nc).some(l => (l.dr !== 0 ? 'v' : 'h') === (task.dr !== 0 ? 'v' : 'h'))) { task.active = false; return; }
             task.path.push({r: nr, c: nc});
         });
     }
@@ -292,9 +264,9 @@
                     cell.appendChild(p);
                 }
                 const lines = getLinesAt(r, c);
-                const hasP1 = lines.some(l => l.player === 1) || board[r][c] === 1;
-                const hasP2 = lines.some(l => l.player === 2) || board[r][c] === 2;
-                if (hasP1 && hasP2) cell.classList.add('disputed');
+                const h1 = lines.some(l => l.player === 1) || board[r][c] === 1;
+                const h2 = lines.some(l => l.player === 2) || board[r][c] === 2;
+                if (h1 && h2) cell.classList.add('disputed');
                 lines.forEach(l => {
                     const lineEl = document.createElement('div');
                     lineEl.className = `line ${l.dr !== 0 ? 'v' : 'h'} p${l.player}`;
@@ -309,10 +281,10 @@
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 const lines = getLinesAt(r, c);
-                const hasP1 = board[r][c] === 1 || lines.some(l => l.player === 1);
-                const hasP2 = board[r][c] === 2 || lines.some(l => l.player === 2);
-                if (hasP1 && hasP2) continue; 
-                if (hasP1) p1++; else if (hasP2) p2++;
+                const h1 = board[r][c] === 1 || lines.some(l => l.player === 1);
+                const h2 = board[r][c] === 2 || lines.some(l => l.player === 2);
+                if (h1 && h2) continue; 
+                if (h1) p1++; else if (h2) p2++;
             }
         }
         document.getElementById('p1-score').innerText = p1;
@@ -321,32 +293,32 @@
     }
 
     function checkGameOver() {
-        let allOccupied = true;
+        let all = true;
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
-                if (board[r][c] === 0 && getLinesAt(r, c).length === 0) { allOccupied = false; break; }
+                if (board[r][c] === 0 && getLinesAt(r, c).length === 0) { all = false; break; }
             }
-            if (!allOccupied) break;
+            if (!all) break;
         }
-        if (allOccupied) {
+        if (all) {
             gameOver = true;
             const s = updateScore();
             document.getElementById('overlay').style.display = 'flex';
             document.getElementById('final-p1').innerText = s.p1;
             document.getElementById('final-p2').innerText = s.p2;
-            const winText = document.getElementById('win-text');
-            if (s.p1 > s.p2) { winText.innerText = "🎉 紅方 勝利！"; document.getElementById('crown-p1').style.display = 'block'; }
-            else if (s.p2 > s.p1) { winText.innerText = "🎉 藍方 勝利！"; document.getElementById('crown-p2').style.display = 'block'; }
-            else { winText.innerText = "⚖️ 平手！"; }
+            const wt = document.getElementById('win-text');
+            if (s.p1 > s.p2) { wt.innerText = "🎉 紅方 勝利！"; document.getElementById('crown-p1').style.display = 'block'; }
+            else if (s.p2 > s.p1) { wt.innerText = "🎉 藍方 勝利！"; document.getElementById('crown-p2').style.display = 'block'; }
+            else { wt.innerText = "⚖️ 平手！"; }
             return true;
         }
         return false;
     }
 
     function copyMyID() {
-        const idText = document.getElementById('my-id').innerText;
-        if (idText === "初始化中...") return;
-        navigator.clipboard.writeText(idText).then(() => alert("ID 已複製到剪貼簿！"));
+        const id = document.getElementById('my-id').innerText;
+        if (id.includes("生成")) return;
+        navigator.clipboard.writeText(id).then(() => alert("房號已複製！"));
     }
 
     initPeer();
