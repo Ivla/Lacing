@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Lacing War - Final Fix</title>
+    <title>Sprawl - Online Multiplayer & AI</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; margin: 0; min-height: 100vh; }
@@ -47,7 +47,7 @@
 <body>
 
 <div id="lobby">
-    <h2 style="color: #f1c40f;">Lacing War</h2>
+    <h1 style="color: #f1c40f; margin-bottom: 20px;">SPRAWL</h1>
     <div class="connection-step">
         <div style="margin-bottom: 5px;">您的房號 (ID)</div>
         <b id="my-id" style="font-size: 1.5em; color: #fff; letter-spacing: 2px;">生成中...</b><br>
@@ -59,7 +59,7 @@
         <div style="margin: 15px 0; color: #888;">— 或 —</div>
         <button class="ai-btn" onclick="startAIMode()">與 AI 對戰</button>
     </div>
-    <div id="status-msg">正在尋找 PeerJS 伺服器...</div>
+    <div id="status-msg">正在尋找伺服器...</div>
 </div>
 
 <div id="game-container">
@@ -127,7 +127,7 @@
         peer.on('connection', (c) => {
             if (conn || isAIMode) { c.close(); return; }
             conn = c;
-            myPlayerNum = 1; // 被連者是紅方
+            myPlayerNum = 1;
             setupListeners();
         });
     }
@@ -142,14 +142,12 @@
         const targetId = document.getElementById('peer-id-input').value.trim();
         if (!targetId) return;
         conn = peer.connect(targetId);
-        myPlayerNum = 2; // 發起連線者是藍方
+        myPlayerNum = 2;
         setupListeners();
     }
 
     function setupListeners() {
-        conn.on('open', () => {
-            conn.send({ type: 'handshake' });
-        });
+        conn.on('open', () => { conn.send({ type: 'handshake' }); });
         conn.on('data', (data) => {
             if (data.type === 'handshake') {
                 startGameUI();
@@ -165,23 +163,21 @@
         document.getElementById('lobby').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
         
-        const labelP1 = document.getElementById('label-p1');
-        const labelP2 = document.getElementById('label-p2');
+        const lp1 = document.getElementById('label-p1');
+        const lp2 = document.getElementById('label-p2');
 
         if (isAIMode) {
-            labelP1.innerText = "您 (紅方)";
-            labelP2.innerText = "AI (藍方)";
+            lp1.innerText = "您 (紅方)";
+            lp2.innerText = "AI (藍方)";
         } else {
-            // 關鍵修正：根據玩家編號標註「您」
             if (myPlayerNum === 1) {
-                labelP1.innerText = "您 (紅方)";
-                labelP2.innerText = "對手 (藍方)";
+                lp1.innerText = "您 (紅方)";
+                lp2.innerText = "對手 (藍方)";
             } else {
-                labelP1.innerText = "對手 (紅方)";
-                labelP2.innerText = "您 (藍方)";
+                lp1.innerText = "對手 (紅方)";
+                lp2.innerText = "您 (藍方)";
             }
         }
-        
         updateTurnDisplay();
         createBoard();
     }
@@ -237,9 +233,7 @@
 
     function isValidMove(r, c, player) {
         if (board[r][c] !== 0) return false;
-        const lines = getLinesAt(r, c);
-        const enemy = (player === 1) ? 2 : 1;
-        return !lines.some(l => l.player === enemy);
+        return !getLinesAt(r, c).some(l => l.player === (player === 1 ? 2 : 1));
     }
 
     function render() {
@@ -249,10 +243,10 @@
                 if (!cell) continue;
                 cell.innerHTML = ''; 
                 const lines = getLinesAt(r, c);
-                const hasP1 = lines.some(l => l.player === 1) || board[r][c] === 1;
-                const hasP2 = lines.some(l => l.player === 2) || board[r][c] === 2;
+                const h1 = lines.some(l => l.player === 1) || board[r][c] === 1;
+                const h2 = lines.some(l => l.player === 2) || board[r][c] === 2;
                 cell.classList.remove('invalid', 'disputed');
-                if (hasP1 && hasP2) cell.classList.add('disputed');
+                if (h1 && h2) cell.classList.add('disputed');
                 else if (!isValidMove(r, c, currentTurnPlayer)) cell.classList.add('invalid');
 
                 if (board[r][c] !== 0) {
